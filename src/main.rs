@@ -1,9 +1,8 @@
 use crossterm::{
-    cursor::{position, MoveLeft, MoveRight, MoveToColumn},
-    event::{read, Event, KeyCode, KeyEvent},
+    cursor::{position, MoveLeft, MoveRight, MoveToColumn, MoveToNextLine},
+    event::{read, Event, KeyCode, KeyEvent, KeyModifiers},
     style::{Color, Print, ResetColor, SetForegroundColor},
-    terminal::{self, ScrollUp},
-    ExecutableCommand, QueueableCommand, Result,
+    terminal, ExecutableCommand, QueueableCommand, Result,
 };
 use std::io::{stdout, Stdout, Write};
 
@@ -25,9 +24,13 @@ fn main() -> Result<()> {
 
         'input: loop {
             match read()? {
-                Event::Key(KeyEvent { code, .. }) => {
+                Event::Key(KeyEvent { code, modifiers }) => {
                     match code {
                         KeyCode::Char(c) => {
+                            if modifiers == KeyModifiers::CONTROL && c == 'd' {
+                                stdout.queue(MoveToNextLine(1))?.queue(Print("exit"))?;
+                                break 'repl;
+                            }
                             let insertion_point =
                                 caret_position as usize - input_start_col as usize;
                             if insertion_point == buffer.len() {
@@ -87,17 +90,64 @@ fn main() -> Result<()> {
                         }
                         KeyCode::Left => {
                             if caret_position > input_start_col {
-                                stdout.queue(MoveLeft(1))?;
+                                if modifiers == KeyModifiers::ALT {
+                                    let whitespace_index = buffer
+                                        .rmatch_indices(&[' ', '\t'][..])
+                                        .find(|(index, _)| {
+                                            index
+                                                < &(caret_position as usize
+                                                    - input_start_col as usize
+                                                    - 1)
+                                        });
+                                    match whitespace_index {
+                                        Some((index, _)) => {
+                                            stdout.queue(MoveToColumn(
+                                                index as u16 + input_start_col + 1,
+                                            ))?;
+                                            caret_position = input_start_col + index as u16 + 1;
+                                        }
+                                        None => {
+                                            stdout.queue(MoveToColumn(input_start_col))?;
+                                            caret_position = input_start_col;
+                                        }
+                                    }
+                                } else {
+                                    stdout.queue(MoveLeft(1))?;
+                                    caret_position -= 1;
+                                }
                                 stdout.flush()?;
-                                caret_position -= 1;
                             }
                         }
                         KeyCode::Right => {
                             if (caret_position as usize) < (input_start_col as usize) + buffer.len()
                             {
-                                stdout.queue(MoveRight(1))?;
+                                if modifiers == KeyModifiers::ALT {
+                                    let whitespace_index = buffer
+                                        .rmatch_indices(&[' ', '\t'][..])
+                                        .find(|(index, _)| {
+                                            index
+                                                > &(caret_position as usize
+                                                    - input_start_col as usize)
+                                        });
+                                    match whitespace_index {
+                                        Some((index, _)) => {
+                                            stdout.queue(MoveToColumn(
+                                                index as u16 + input_start_col + 1,
+                                            ))?;
+                                            caret_position = input_start_col + index as u16 + 1;
+                                        }
+                                        None => {
+                                            stdout.queue(MoveToColumn(
+                                                buffer.len() as u16 + input_start_col,
+                                            ))?;
+                                            caret_position = buffer.len() as u16 + input_start_col;
+                                        }
+                                    }
+                                } else {
+                                    stdout.queue(MoveRight(1))?;
+                                    caret_position += 1;
+                                }
                                 stdout.flush()?;
-                                caret_position += 1;
                             }
                         }
                         _ => {}
@@ -121,10 +171,10 @@ fn main() -> Result<()> {
 
 fn print_message(stdout: &mut Stdout, msg: &str) -> Result<()> {
     stdout
-        .queue(ScrollUp(1))?
+        .queue(Print("\n"))?
         .queue(MoveToColumn(1))?
         .queue(Print(msg))?
-        .queue(ScrollUp(1))?
+        .queue(Print("\n"))?
         .queue(MoveToColumn(1))?;
     stdout.flush()?;
     Ok(())
