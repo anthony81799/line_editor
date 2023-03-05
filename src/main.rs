@@ -42,14 +42,14 @@ fn main() -> Result<()> {
                                     ))?;
                             }
                             stdout.flush()?;
-                            buffer.inc_insertion_point();
                             buffer.insert_char(insertion_point, c);
+                            buffer.inc_insertion_point();
                         }
                         KeyCode::Backspace => {
                             let insertion_point = buffer.get_insertion_point();
                             if insertion_point == buffer.get_buffer_length() && !buffer.is_empty() {
-                                buffer.pop();
                                 buffer.dec_insertion_point();
+                                buffer.pop();
                                 stdout
                                     .queue(MoveLeft(1))?
                                     .queue(Print(' '))?
@@ -58,15 +58,14 @@ fn main() -> Result<()> {
                             } else if insertion_point < buffer.get_buffer_length()
                                 && !buffer.is_empty()
                             {
-                                buffer.remove_char(insertion_point - 1);
                                 buffer.dec_insertion_point();
+                                let insertion_point = buffer.get_insertion_point();
+                                buffer.remove_char(insertion_point);
                                 stdout
                                     .queue(MoveLeft(1))?
-                                    .queue(Print(buffer.slice_buffer(insertion_point - 1)))?
+                                    .queue(Print(buffer.slice_buffer(insertion_point)))?
                                     .queue(Print(' '))?
-                                    .queue(MoveToColumn(
-                                        insertion_point as u16 + prompt_offset - 1,
-                                    ))?;
+                                    .queue(MoveToColumn(insertion_point as u16 + prompt_offset))?;
                                 stdout.flush()?;
                             }
                         }
