@@ -30,8 +30,14 @@ fn main() -> Result<()> {
                                 stdout.queue(MoveToNextLine(1))?.queue(Print("exit"))?;
                                 break 'repl;
                             }
+<<<<<<< HEAD
                             let insertion_point = buffer.get_insertion_point();
                             if insertion_point == buffer.get_buffer_length() {
+=======
+                            let insertion_point =
+                                caret_position as usize - input_start_col as usize;
+                            if insertion_point == buffer.len() {
+>>>>>>> master
                                 stdout.queue(Print(c))?;
                             } else {
                                 stdout
@@ -95,6 +101,7 @@ fn main() -> Result<()> {
                             }
                         }
                         KeyCode::Left => {
+<<<<<<< HEAD
                             if buffer.get_insertion_point() > 0 {
                                 if modifiers == KeyModifiers::ALT {
                                     let new_insertion_point = buffer.move_word_left();
@@ -104,11 +111,39 @@ fn main() -> Result<()> {
                                 } else {
                                     stdout.queue(MoveLeft(1))?;
                                     buffer.dec_insertion_point();
+=======
+                            if caret_position > input_start_col {
+                                if modifiers == KeyModifiers::ALT {
+                                    let whitespace_index = buffer
+                                        .rmatch_indices(&[' ', '\t'][..])
+                                        .find(|(index, _)| {
+                                            index
+                                                < &(caret_position as usize
+                                                    - input_start_col as usize
+                                                    - 1)
+                                        });
+                                    match whitespace_index {
+                                        Some((index, _)) => {
+                                            stdout.queue(MoveToColumn(
+                                                index as u16 + input_start_col + 1,
+                                            ))?;
+                                            caret_position = input_start_col + index as u16 + 1;
+                                        }
+                                        None => {
+                                            stdout.queue(MoveToColumn(input_start_col))?;
+                                            caret_position = input_start_col;
+                                        }
+                                    }
+                                } else {
+                                    stdout.queue(MoveLeft(1))?;
+                                    caret_position -= 1;
+>>>>>>> master
                                 }
                                 stdout.flush()?;
                             }
                         }
                         KeyCode::Right => {
+<<<<<<< HEAD
                             if buffer.get_insertion_point() < buffer.get_buffer_length() {
                                 if modifiers == KeyModifiers::ALT {
                                     let new_insertion_point = buffer.move_word_right();
@@ -118,6 +153,35 @@ fn main() -> Result<()> {
                                 } else {
                                     stdout.queue(MoveRight(1))?;
                                     buffer.inc_insertion_point();
+=======
+                            if (caret_position as usize) < (input_start_col as usize) + buffer.len()
+                            {
+                                if modifiers == KeyModifiers::ALT {
+                                    let whitespace_index = buffer
+                                        .rmatch_indices(&[' ', '\t'][..])
+                                        .find(|(index, _)| {
+                                            index
+                                                > &(caret_position as usize
+                                                    - input_start_col as usize)
+                                        });
+                                    match whitespace_index {
+                                        Some((index, _)) => {
+                                            stdout.queue(MoveToColumn(
+                                                index as u16 + input_start_col + 1,
+                                            ))?;
+                                            caret_position = input_start_col + index as u16 + 1;
+                                        }
+                                        None => {
+                                            stdout.queue(MoveToColumn(
+                                                buffer.len() as u16 + input_start_col,
+                                            ))?;
+                                            caret_position = buffer.len() as u16 + input_start_col;
+                                        }
+                                    }
+                                } else {
+                                    stdout.queue(MoveRight(1))?;
+                                    caret_position += 1;
+>>>>>>> master
                                 }
                                 stdout.flush()?;
                             }
