@@ -25,12 +25,17 @@ impl LineBuffer {
         &self.buffer
     }
 
-    pub fn get_buffer_length(&self) -> usize {
-        self.buffer.len()
+    pub fn set_buffer(&mut self, buffer: String) {
+        self.buffer = buffer;
     }
 
-    pub fn slice_buffer(&self, pos: usize) -> &str {
-        &self.buffer[pos..]
+    pub fn move_to_end(&mut self) -> usize {
+        self.insertion_point = self.buffer.len();
+        self.insertion_point
+    }
+
+    pub fn get_buffer_length(&self) -> usize {
+        self.buffer.len()
     }
 
     fn get_grapheme_indices(&self) -> Vec<(usize, &str)> {
@@ -69,6 +74,11 @@ impl LineBuffer {
 
     pub fn clear(&mut self) {
         self.buffer.clear();
+        self.insertion_point = 0;
+    }
+
+    pub fn clear_to_end(&mut self) {
+        self.buffer.truncate(self.insertion_point);
     }
 
     pub fn is_empty(&self) -> bool {
@@ -80,7 +90,9 @@ impl LineBuffer {
     }
 
     pub fn pop(&mut self) -> Option<char> {
-        self.buffer.pop()
+        let result = self.buffer.pop();
+        self.insertion_point = self.buffer.len();
+        result
     }
 
     pub fn remove_char(&mut self, idx: usize) -> char {
@@ -88,34 +100,49 @@ impl LineBuffer {
     }
 
     pub fn move_word_left(&mut self) -> usize {
-        match self
-            .buffer
-            .rmatch_indices(&[' ', '\t'][..])
-            .find(|(index, _)| index < &(self.insertion_point - 1))
-        {
-            Some((index, _)) => {
-                self.insertion_point = index + 1;
+        let mut words = self.buffer[..self.insertion_point - 1]
+            .split_word_bound_indices()
+            .rev();
+
+        loop {
+            match words.next() {
+                Some((_, word)) if is_word_boundary(word) => {
+                    continue;
+                }
+                Some((index, _)) => {
+                    self.insertion_point = index;
+                }
+                None => {
+                    self.insertion_point = 0;
+                }
             }
-            None => {
-                self.insertion_point = 0;
-            }
+            return self.insertion_point;
         }
-        self.insertion_point
     }
 
     pub fn move_word_right(&mut self) -> usize {
-        match self
-            .buffer
-            .match_indices(&[' ', '\t'][..])
-            .find(|(index, _)| index > &(self.insertion_point))
-        {
-            Some((index, _)) => {
-                self.insertion_point = index + 1;
+        let mut words = self.buffer[self.insertion_point..].split_word_bound_indices();
+        let mut word_found = false;
+
+        loop {
+            match words.next() {
+                Some((offset, word)) => {
+                    if word_found {
+                        self.insertion_point += offset;
+                    } else {
+                        word_found = !is_word_boundary(word);
+                        continue;
+                    }
+                }
+                None => {
+                    self.insertion_point = self.buffer.len();
+                }
             }
-            None => {
-                self.insertion_point = self.buffer.len();
-            }
+            return self.insertion_point;
         }
-        self.insertion_point
     }
+}
+
+fn is_word_boundary(s: &str) -> bool {
+    !s.chars().any(char::is_alphabetic)
 }
